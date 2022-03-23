@@ -1,16 +1,21 @@
+from collections import defaultdict
+
+from bs4 import BeautifulSoup
 from requests import get
-from json import loads
 
 if __name__ == '__main__':
-    print("Input the URL:Input the URL:")
+    print("Input the URL:")
     url = input()
 
-    response_url = get(url)
-    if str(response_url.status_code).startswith('4'):
-        print("Invalid quote resource!")
+    movie = defaultdict(str)
+
+    r = get(url, headers={'Accept-Language': 'en-US,en;q=0.5'})
+
+    if str(r.status_code).startswith('4') or 'title' not in url:
+        print("Invalid movie page!")
     else:
-        content = loads(response_url.text)
-        try:
-            print(content['content'])
-        except KeyError:
-            print("Invalid quote resource!")
+        soup = BeautifulSoup(r.content, 'html.parser')
+        movie['title'] = soup.find('h1').text
+        movie['description'] = soup.find('span', {'data-testid': 'plot-l'}).text
+
+        print(dict(movie))
