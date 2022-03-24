@@ -1,21 +1,14 @@
-from collections import defaultdict
-
-from bs4 import BeautifulSoup
 from requests import get
 
 if __name__ == '__main__':
     print("Input the URL:")
     url = input()
+    r = get(url)
 
-    movie = defaultdict(str)
-
-    r = get(url, headers={'Accept-Language': 'en-US,en;q=0.5'})
-
-    if str(r.status_code).startswith('4') or 'title' not in url:
-        print("Invalid movie page!")
+    if str(r.status_code).startswith('3') or str(r.status_code).startswith('4') or str(r.status_code).startswith('5'):
+        print(f"The URL returned {r.status_code}!")
     else:
-        soup = BeautifulSoup(r.content, 'html.parser')
-        movie['title'] = soup.find('h1').text
-        movie['description'] = soup.find('span', {'data-testid': 'plot-l'}).text
-
-        print(dict(movie))
+        page_content = r.content
+        with open('source.html', 'wb') as file:
+            file.write(page_content)
+        print("Content saved.")
