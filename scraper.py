@@ -1,38 +1,49 @@
+import os
 import string
+from pathlib import Path
 
+import requests
 from bs4 import BeautifulSoup
-from requests import get
 
-if __name__ == '__main__':
-    URL = "https://www.nature.com/nature/articles?sort=PubDate&year=2020&page=3"
-    r = get(URL)
-    saved_articles = list()
-    soup = BeautifulSoup(r.content, 'html.parser')
+BASE_URL = "https://www.nature.com"
 
-    article_list = soup.find("ul", class_="app-article-list-row")
-    articles_types = [type_.text.strip('\n') for type_ in
-                      article_list.find_all_next("span", {"data-test": "article.type"})]
 
-    news_indexes = [i for i in range(len(articles_types)) if articles_types[i] == "News"]
+def get_articles_from_response(response, requested_type, directory):
+    soup = BeautifulSoup(response.content, "html.parser")
+    articles = soup.find_all("article")
+    if articles:
+        for article in articles:
+            article_type = article.find("span", {"class": "c-meta__type"}).text
+            if article_type == requested_type:
+                title = article.find("a").text.strip().replace(string.punctuation, "").replace("’", "").replace("?",
+                                                                                                                "").replace(
+                    " ", "_")
+                link = article.find("a", href=True)["href"]
+                article_url = f"{BASE_URL}{link}"
+                filename = directory / f"{title}.txt"
 
-    punctuation_trans = str.maketrans('', '', string.punctuation.replace('_', ''))
-    articles_titles = article_list.find_all_next("a", class_="c-card__link u-link-inherit")
+                response = requests.get(article_url)
+                soup2 = BeautifulSoup(response.content, "html.parser")
+                content = soup2.find("div", {"class": "c-article-body"}).text.strip()
+                content_binary = bytes(content, "utf-8")
 
-    articles_links = article_list.find_all_next('a', {"data-track-action": "view article"})
-    for news_index in news_indexes:
-        article_link = "https://www.nature.com" + articles_links[news_index].get('href')
-        article_content = get(article_link).content
-        soup_article = BeautifulSoup(article_content, 'html.parser')
+                with open(filename, 'wb') as source:
+                    source.write(content_binary)
 
-        content_to_write = soup_article.find("div", class_="c-article-body u-clearfix").text.encode("UTF-8")
 
-        article_filename = articles_titles[news_index].text.rstrip().lstrip().replace(' ', '_').translate(
-            punctuation_trans) + ".txt"
+def browse_pages(pages, articles_type):
+    for number in range(1, pages + 1):
+        page_dir = Path.cwd() / f"Page_{number}"
+        os.mkdir(page_dir)
+        pages_url = f"{BASE_URL}/nature/articles?sort=PubDate&year=2020"
+        url = f"{pages_url}&page={number}"
+        response = requests.get(url)
+        get_articles_from_response(response, articles_type, page_dir)
 
-        with open(article_filename,
-                  'wb') as file:
-            file.write(content_to_write)
-        saved_articles.append(article_filename)
-        
-    print("Saved articles:  ")
-    print(saved_articles)
+    print("Saved all articles.")
+
+
+if __name__ == "__main__":
+    pages = int(input())
+    articles_type = input()
+    browse_pages(pages, articles_type)
